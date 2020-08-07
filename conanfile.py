@@ -44,7 +44,7 @@ class Open3dConan(ConanFile):
         "submodule": "recursive",
      }
 
-    exports_sources = "CMakeLists.txt"
+    exports_sources = ["CMakeLists.txt", "mathstub.c"]
     _cmake = None
 
     def requirements(self):
@@ -54,6 +54,28 @@ class Open3dConan(ConanFile):
     def configure(self):
         if self.options.with_visualization and self.options.shared:
             self.options['glew'].shared = True
+
+    def source(self):
+        ##self.run("git clone https://github.com/RainerKuemmerle/g2o.git " + self._source_subfolder)
+        ##ConanFile.source()
+        #self.run("cd " + self._source_subfolder + " && git checkout 9b41a4e")
+        self._patch()
+
+    def _patch(self):
+        # don't be so strict on warnings
+        print("replacing " + str(os.path.join(self.source_folder, "open3d/cpp/CMakeLists.txt")))
+        tools.replace_in_file(os.path.join(self.source_folder, "open3d/cpp/CMakeLists.txt"),
+            '-Wall -Werror',
+            '-Wall')
+        # temporary fix for undefined math functions on Ubuntu 20.04
+        # https://github.com/google/filament/issues/2146
+        shutil.copyfile("mathstub.c", "open3d/cpp/open3d/mathstub.c")
+        tools.replace_in_file(os.path.join(self.source_folder, "open3d/cpp/open3d/CMakeLists.txt"),
+            'Open3DConfig.cpp',
+            '''Open3DConfig.cpp
+               mathstub.c
+            ''')        
+        pass
 
     def _configure_cmake(self):
         if not self._cmake:
@@ -100,6 +122,7 @@ class Open3dConan(ConanFile):
         #cmake = self._configure_cmake()
         #cmake.install()
         cmake = CMake(self)
+        cmake.install()
         pass
 
     def package_info(self):
